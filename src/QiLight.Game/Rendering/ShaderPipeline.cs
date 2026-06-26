@@ -1,0 +1,160 @@
+using System;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+
+namespace QiLight.Game.Rendering;
+
+public class ShaderPipeline
+{
+    private readonly GraphicsDevice _device;
+    private SpriteBatch _spriteBatch = null!;
+
+    private RenderTarget2D _sceneTarget = null!;
+    private RenderTarget2D _bloomExtract = null!;
+    private RenderTarget2D _bloomBlurH = null!;
+    private RenderTarget2D _bloomBlurV = null!;
+
+    private Effect? _bloomEffect;
+    private bool _useShaderBloom;
+
+    public float BloomThreshold { get; set; } = 0.3f;
+    public float BloomIntensity { get; set; } = 1.5f;
+    public float BloomSaturation { get; set; } = 1.0f;
+    public float BaseIntensity { get; set; } = 1.0f;
+
+    private float _bloomIntensityOverride;
+    private float _overrideDuration;
+
+    public ShaderPipeline(GraphicsDevice device)
+    {
+        _device = device;
+    }
+
+    public void LoadContent(Microsoft.Xna.Framework.Content.ContentManager content)
+    {
+        _spriteBatch = new SpriteBatch(_device);
+
+        try
+        {
+            _bloomEffect = content.Load<Effect>("Shaders/Bloom");
+            _useShaderBloom = true;
+        }
+        catch
+        {
+            _useShaderBloom = false;
+        }
+
+        CreateRenderTargets();
+    }
+
+    private void CreateRenderTargets()
+    {
+        int w = _device.PresentationParameters.BackBufferWidth;
+        int h = _device.PresentationParameters.BackBufferHeight;
+        int halfW = w / 2;
+        int halfH = h / 2;
+
+        _sceneTarget?.Dispose();
+        _bloomExtract?.Dispose();
+        _bloomBlurH?.Dispose();
+        _bloomBlurV?.Dispose();
+
+        _sceneTarget = new RenderTarget2D(_device, w, h, false, SurfaceFormat.Color, DepthFormat.None);
+        _bloomExtract = new RenderTarget2D(_device, halfW, halfH, false, SurfaceFormat.Color, DepthFormat.None);
+        _bloomBlurH = new RenderTarget2D(_device, halfW, halfH, false, SurfaceFormat.Color, DepthFormat.None);
+        _bloomBlurV = new RenderTarget2D(_device, halfW, halfH, false, SurfaceFormat.Color, DepthFormat.None);
+    }
+
+    public void HandleResize()
+    {
+        CreateRenderTargets();
+    }
+
+    public void FlashBloom(float intensity = 3f, float duration = 0.1f)
+    {
+        _bloomIntensityOverride = intensity;
+        _overrideDuration = duration;
+    }
+
+    public void Begin()
+    {
+        _device.SetRenderTarget(_sceneTarget);
+        _device.Clear(Color.Black);
+    }
+
+    public void End(GameTime gameTime)
+    {
+        _device.SetRenderTarget(null);
+
+        float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        float effectiveIntensity = BloomIntensity;
+        if (_overrideDuration > 0)
+        {
+            effectiveIntensity = _bloomIntensityOverride;
+            _overrideDuration -= dt;
+        }
+
+        if (_useShaderBloom && _bloomEffect != null)
+        {
+            DrawWithShaderBloom(effectiveIntensity);
+        }
+        else
+        {
+            DrawWithFallbackBloom(effectiveIntensity);
+        }
+    }
+
+    private void DrawWithShaderBloom(float intensity)
+    {
+        _bloomEffect!.Parameters["BloomThreshold"]?.SetValue(BloomThreshold);
+
+        _device.SetRenderTarget(_bloomExtract);
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp,
+            null, null, _bloomEffect);
+        _bloomEffect.CurrentTechnique = _bloomEffect.Techniques["BrightExtract"];
+        _spriteBatch.Draw(_sceneTarget, _bloomExtract.Bounds, Color.White);
+        _spriteBatch.End();
+
+        _bloomEffect.Parameters["TexelSize"]?.SetValue(new Vector2(1f / _bloomBlurH.Width, 0));
+        _device.SetRenderTarget(_bloomBlurH);
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp,
+            null, null, _bloomEffect);
+        _bloomEffect.CurrentTechnique = _bloomEffect.Techniques["GaussianBlur"];
+        _spriteBatch.Draw(_bloomExtract, _bloomBlurH.Bounds, Color.White);
+        _spriteBatch.End();
+
+        _bloomEffect.Parameters["TexelSize"]?.SetValue(new Vector2(0, 1f / _bloomBlurV.Height));
+        _device.SetRenderTarget(_bloomBlurV);
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp,
+            null, null, _bloomEffect);
+        _bloomEffect.CurrentTechnique = _bloomEffect.Techniques["GaussianBlur"];
+        _spriteBatch.Draw(_bloomBlurH, _bloomBlurV.Bounds, Color.White);
+        _spriteBatch.End();
+
+        _bloomEffect.Parameters["BloomIntensity"]?.SetValue(intensity);
+        _bloomEffect.Parameters["BloomSaturation"]?.SetValue(BloomSaturation);
+        _bloomEffect.Parameters["BaseIntensity"]?.SetValue(BaseIntensity);
+        _device.SetRenderTarget(null);
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp,
+            null, null, _bloomEffect);
+        _bloomEffect.CurrentTechnique = _bloomEffect.Techniques["BloomCombine"];
+        _bloomEffect.Parameters["BloomTexture"]?.SetValue(_bloomBlurV);
+        _spriteBatch.Draw(_sceneTarget, _device.Viewport.Bounds, Color.White);
+        _spriteBatch.End();
+    }
+
+    private void DrawWithFallbackBloom(float intensity)
+    {
+        _device.SetRenderTarget(null);
+        _device.Clear(Color.Black);
+
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque);
+        _spriteBatch.Draw(_sceneTarget, _device.Viewport.Bounds, Color.White);
+        _spriteBatch.End();
+
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.LinearClamp);
+        float alpha = MathHelper.Clamp(intensity * 0.3f, 0, 1);
+        _spriteBatch.Draw(_sceneTarget, _device.Viewport.Bounds, new Color(alpha, alpha, alpha, alpha));
+        _spriteBatch.End();
+    }
+}
