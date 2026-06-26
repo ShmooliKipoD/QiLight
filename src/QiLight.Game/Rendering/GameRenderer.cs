@@ -19,6 +19,8 @@ public class GameRenderer
     private const float LightRadius = 240f;
     private const float LightIntensity = 0.45f;
     private const float SparxOccluderRadius = 7f;
+    // Constant faint floor glow so player-relative shadows are visible screen-wide.
+    private static readonly Color AmbientColor = new(26, 24, 36);
 
     // Pixel font (base size 10) is scaled up per context; titles/headings big, HUD 1:1.
     private const float TitleScale = 4f;
@@ -229,9 +231,14 @@ public class GameRenderer
         float radius = LightRadius * pulse;
         var lightColor = (player.Mode == PlayerMode.Drawing ? Theme.Trail : Theme.Border) * LightIntensity;
 
-        _shader.BeginLight();
+        // Project shadows across the whole screen so they show over the ambient floor.
+        float screenDiag = MathF.Sqrt(
+            _device.Viewport.Width * _device.Viewport.Width +
+            _device.Viewport.Height * _device.Viewport.Height);
+
+        _shader.BeginLight(AmbientColor);
         _neon.DrawRadialLight(player.Position, radius, lightColor);
-        _neon.DrawShadowVolumes(player.Position, occluders, radius * 1.6f);
+        _neon.DrawShadowVolumes(player.Position, occluders, screenDiag);
         _shader.EndLight();
     }
 

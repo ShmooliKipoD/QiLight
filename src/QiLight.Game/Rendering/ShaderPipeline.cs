@@ -79,10 +79,10 @@ public class ShaderPipeline
         _overrideDuration = duration;
     }
 
-    public void BeginLight()
+    public void BeginLight(Color ambient)
     {
         _device.SetRenderTarget(_lightTarget);
-        _device.Clear(Color.Black);
+        _device.Clear(ambient);
     }
 
     public void EndLight()
