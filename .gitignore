@@ -1,0 +1,27 @@
+## .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.nupkg
+.vs/
+*.userprefs
+
+## MonoGame
+*.mgstats
+
+## macOS
+.DS_Store
+*.swp
+*~
+
+## IDE
+.idea/
+.vscode/
+
+## Build output
+dist/
