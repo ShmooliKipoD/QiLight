@@ -10,6 +10,7 @@ public class ShaderPipeline
     private SpriteBatch _spriteBatch = null!;
 
     private RenderTarget2D _sceneTarget = null!;
+    private RenderTarget2D _lightTarget = null!;
     private RenderTarget2D _bloomExtract = null!;
     private RenderTarget2D _bloomBlurH = null!;
     private RenderTarget2D _bloomBlurV = null!;
@@ -17,8 +18,8 @@ public class ShaderPipeline
     private Effect? _bloomEffect;
     private bool _useShaderBloom;
 
-    public float BloomThreshold { get; set; } = 0.3f;
-    public float BloomIntensity { get; set; } = 1.5f;
+    public float BloomThreshold { get; set; } = 0.45f;
+    public float BloomIntensity { get; set; } = 1.0f;
     public float BloomSaturation { get; set; } = 1.0f;
     public float BaseIntensity { get; set; } = 1.0f;
 
@@ -55,11 +56,13 @@ public class ShaderPipeline
         int halfH = h / 2;
 
         _sceneTarget?.Dispose();
+        _lightTarget?.Dispose();
         _bloomExtract?.Dispose();
         _bloomBlurH?.Dispose();
         _bloomBlurV?.Dispose();
 
         _sceneTarget = new RenderTarget2D(_device, w, h, false, SurfaceFormat.Color, DepthFormat.None);
+        _lightTarget = new RenderTarget2D(_device, w, h, false, SurfaceFormat.Color, DepthFormat.None);
         _bloomExtract = new RenderTarget2D(_device, halfW, halfH, false, SurfaceFormat.Color, DepthFormat.None);
         _bloomBlurH = new RenderTarget2D(_device, halfW, halfH, false, SurfaceFormat.Color, DepthFormat.None);
         _bloomBlurV = new RenderTarget2D(_device, halfW, halfH, false, SurfaceFormat.Color, DepthFormat.None);
@@ -70,10 +73,29 @@ public class ShaderPipeline
         CreateRenderTargets();
     }
 
-    public void FlashBloom(float intensity = 3f, float duration = 0.1f)
+    public void FlashBloom(float intensity = 2f, float duration = 0.1f)
     {
         _bloomIntensityOverride = intensity;
         _overrideDuration = duration;
+    }
+
+    public void BeginLight()
+    {
+        _device.SetRenderTarget(_lightTarget);
+        _device.Clear(Color.Black);
+    }
+
+    public void EndLight()
+    {
+        _device.SetRenderTarget(null);
+    }
+
+    // Additively blend the light buffer onto the currently-bound scene target.
+    public void CompositeLight()
+    {
+        _spriteBatch.Begin(SpriteSortMode.Deferred, NeonRenderer.AddRGB, SamplerState.LinearClamp);
+        _spriteBatch.Draw(_lightTarget, _sceneTarget.Bounds, Color.White);
+        _spriteBatch.End();
     }
 
     public void Begin()
@@ -153,7 +175,7 @@ public class ShaderPipeline
         _spriteBatch.End();
 
         _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.LinearClamp);
-        float alpha = MathHelper.Clamp(intensity * 0.3f, 0, 1);
+        float alpha = MathHelper.Clamp(intensity * 0.2f, 0, 1);
         _spriteBatch.Draw(_sceneTarget, _device.Viewport.Bounds, new Color(alpha, alpha, alpha, alpha));
         _spriteBatch.End();
     }
