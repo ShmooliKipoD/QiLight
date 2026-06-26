@@ -113,7 +113,7 @@ public class NeonRenderer
         {
             float t = (float)i / layers;                 // 1 = outermost
             float radius = MathHelper.Lerp(coreRadius, glowRadius, t);
-            float alpha = (1f - t) * 0.15f + 0.03f;      // fainter toward the edge
+            float alpha = (1f - t) * 0.08f + 0.02f;      // fainter toward the edge
             DrawDot(pos, color * alpha, radius);
         }
 
