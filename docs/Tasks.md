@@ -2,12 +2,12 @@
 
 ## Features
  - [ ] font should be 8bit like
- - [ ] other objects cast shadow relative to the player
-   - [ ] add constant over the screen very light glow so it will cast shadows
+ - [x] other objects cast shadow relative to the player
+   - [x] add constant over the screen very light glow so it will cast shadows
  - [ ] ecs to exit
    - [ ] promt
    - [ ] if ecs again quit
- - [ ] when presing d the player retract automaticly over the tail 
+ - [x] when presing d the player retract automaticly over the tail 
 
 ## Fixes
 
