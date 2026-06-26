@@ -21,7 +21,6 @@ obj/
 
 ## IDE
 .idea/
-.vscode/
 
 ## Build output
 dist/

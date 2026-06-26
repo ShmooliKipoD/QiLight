@@ -1,0 +1,19 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug QiLight",
+      "type": "coreclr",
+      "request": "launch",
+      "preLaunchTask": "build",
+      "program": "${workspaceFolder}/src/QiLight.Game/bin/Debug/net9.0/QiLight.Game.dll",
+      "args": [],
+      "cwd": "${workspaceFolder}/src/QiLight.Game",
+      "env": {
+        "DYLD_FALLBACK_LIBRARY_PATH": "/opt/homebrew/lib"
+      },
+      "console": "internalConsole",
+      "stopAtEntry": false
+    }
+  ]
+}
