@@ -249,7 +249,7 @@ public class GameRenderer
 
         var color = player.Mode == PlayerMode.Drawing ? Theme.Trail : Theme.Border;
         float pulse = 0.8f + 0.2f * MathF.Sin(pulseFactor * 4f); // matches trail pulse style
-        _neon.DrawGlowDot(player.Position, color, 6f, 18f * pulse, 5);
+        _neon.DrawGlowDot(player.Position, color, 5f, 11f * pulse, 4);
     }
 
     private void DrawQix(Qix qix)
