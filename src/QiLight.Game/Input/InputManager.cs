@@ -22,6 +22,7 @@ public class InputManager
     public MoveDirection Direction { get; private set; }
     public bool ActionPressed { get; private set; }
     public bool ActionHeld { get; private set; }
+    public bool RetractHeld { get; private set; }
     public bool PausePressed { get; private set; }
     public bool SpeedBoost { get; private set; }
     public bool EnterPressed { get; private set; }
@@ -56,6 +57,9 @@ public class InputManager
 
         ActionHeld = _currentKeyboard.IsKeyDown(Keys.Space) ||
                      _currentGamePad.Buttons.A == ButtonState.Pressed;
+
+        RetractHeld = _currentKeyboard.IsKeyDown(Keys.Back) ||
+                      _currentGamePad.Buttons.B == ButtonState.Pressed;
 
         PausePressed = IsKeyPressed(Keys.P) || IsKeyPressed(Keys.Escape) ||
                        (_currentGamePad.Buttons.Start == ButtonState.Pressed &&

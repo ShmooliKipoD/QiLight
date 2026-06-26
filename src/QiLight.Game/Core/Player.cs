@@ -14,6 +14,7 @@ public class Player
     public const float BorderSpeed = 200f;
     public const float DrawSpeedSlow = 150f;
     public const float DrawSpeedFast = 300f;
+    public const float RetractSpeed = 250f;
     public const int MaxLives = 3;
 
     public Vector2 Position { get; set; }
@@ -37,7 +38,7 @@ public class Player
         Position = playField.Vertices[0];
     }
 
-    public void Update(GameTime gameTime, Input.MoveDirection direction, bool actionHeld, bool speedBoost, Territory territory)
+    public void Update(GameTime gameTime, Input.MoveDirection direction, bool actionHeld, bool speedBoost, bool retract, Territory territory)
     {
         float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
 
@@ -59,6 +60,12 @@ public class Player
         }
         else if (Mode == PlayerMode.Drawing)
         {
+            if (retract)
+            {
+                RetractAlongTrail(dt);
+                return;
+            }
+
             IsDrawingFast = speedBoost;
             float speed = (IsDrawingFast ? DrawSpeedFast : DrawSpeedSlow) * dt;
 
@@ -103,6 +110,39 @@ public class Player
         if (dir == Vector2.Zero) return false;
         var probe = ClampToPlayArea(Position + dir * BorderExitProbe);
         return !_playField.IsOnBorder(probe, 3f);
+    }
+
+    // Hold-to-retract: walk the trail head backward along the drawn polyline,
+    // consuming vertices. Reaching the start cancels the draw (no capture).
+    private void RetractAlongTrail(float dt)
+    {
+        IsDrawingFast = false;
+        float remaining = RetractSpeed * dt;
+        while (remaining > 0f && Trail.Count >= 2)
+        {
+            Vector2 head = Trail[^1];   // == Position
+            Vector2 prev = Trail[^2];
+            float segLen = Vector2.Distance(head, prev);
+            if (segLen <= remaining)
+            {
+                Trail.RemoveAt(Trail.Count - 1); // drop head vertex
+                Position = Trail[^1];            // head becomes prev
+                remaining -= segLen;
+            }
+            else
+            {
+                Position = head + Vector2.Normalize(prev - head) * remaining;
+                Trail[Trail.Count - 1] = Position; // move head vertex back
+                remaining = 0f;
+            }
+        }
+
+        if (Trail.Count <= 1) // reached the start on the border
+        {
+            if (Trail.Count == 1) Position = Trail[0];
+            Trail.Clear();
+            Mode = PlayerMode.Border;
+        }
     }
 
     private void StartDrawing(GameTime gameTime)

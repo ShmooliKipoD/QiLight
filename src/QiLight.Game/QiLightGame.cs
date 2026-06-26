@@ -158,7 +158,7 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
 
         float prevCaptured = _territory.CapturedPercentage;
 
-        _player.Update(gameTime, _input.Direction, _input.ActionHeld, _input.SpeedBoost, _territory);
+        _player.Update(gameTime, _input.Direction, _input.ActionHeld, _input.SpeedBoost, _input.RetractHeld, _territory);
 
         _territory.SetQixPosition(_qix.Center);
         _qix.Update(gameTime, _territory.UncapturedPolygon);
