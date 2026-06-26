@@ -27,6 +27,8 @@ public class Player
     public bool IsInvincible => InvincibleTimer > 0f;
 
     private const float SpawnInvincibilityDuration = 1.5f;
+    private const float MinDrawCompletionDistance = 20f;
+    private const float BorderExitProbe = 8f; // > IsOnBorder tolerance (3f)
     private readonly PlayField _playField;
 
     public Player(PlayField playField)
@@ -44,12 +46,15 @@ public class Player
 
         if (Mode == PlayerMode.Border)
         {
-            float speed = BorderSpeed * dt;
-            Position = _playField.MoveAlongBorder(Position, direction, speed);
-
-            if (actionHeld && direction != Input.MoveDirection.None)
+            if (actionHeld && direction != Input.MoveDirection.None
+                && DirectionLeavesBorder(direction))
             {
                 StartDrawing(gameTime);
+            }
+            else
+            {
+                float speed = BorderSpeed * dt;
+                Position = _playField.MoveAlongBorder(Position, direction, speed);
             }
         }
         else if (Mode == PlayerMode.Drawing)
@@ -57,14 +62,7 @@ public class Player
             IsDrawingFast = speedBoost;
             float speed = (IsDrawingFast ? DrawSpeedFast : DrawSpeedSlow) * dt;
 
-            Vector2 desiredDir = direction switch
-            {
-                Input.MoveDirection.Right => Vector2.UnitX,
-                Input.MoveDirection.Left => -Vector2.UnitX,
-                Input.MoveDirection.Down => Vector2.UnitY,
-                Input.MoveDirection.Up => -Vector2.UnitY,
-                _ => Vector2.Zero
-            };
+            Vector2 desiredDir = DirToVector(direction);
 
             if (desiredDir != Vector2.Zero)
             {
@@ -73,17 +71,38 @@ public class Player
 
                 if (Trail.Count > 2 && _playField.IsOnBorder(newPos, 3f))
                 {
-                    newPos = _playField.SnapToBorder(newPos);
-                    Position = newPos;
-                    Trail.Add(newPos);
-                    CompleteDraw(territory, gameTime);
-                    return;
+                    float distFromStart = Vector2.Distance(newPos, Trail[0]);
+                    if (distFromStart > MinDrawCompletionDistance)
+                    {
+                        newPos = _playField.SnapToBorder(newPos);
+                        Position = newPos;
+                        Trail.Add(newPos);
+                        CompleteDraw(territory, gameTime);
+                        return;
+                    }
                 }
 
                 Position = newPos;
                 Trail.Add(newPos);
             }
         }
+    }
+
+    private static Vector2 DirToVector(Input.MoveDirection direction) => direction switch
+    {
+        Input.MoveDirection.Right => Vector2.UnitX,
+        Input.MoveDirection.Left => -Vector2.UnitX,
+        Input.MoveDirection.Down => Vector2.UnitY,
+        Input.MoveDirection.Up => -Vector2.UnitY,
+        _ => Vector2.Zero
+    };
+
+    private bool DirectionLeavesBorder(Input.MoveDirection direction)
+    {
+        var dir = DirToVector(direction);
+        if (dir == Vector2.Zero) return false;
+        var probe = ClampToPlayArea(Position + dir * BorderExitProbe);
+        return !_playField.IsOnBorder(probe, 3f);
     }
 
     private void StartDrawing(GameTime gameTime)

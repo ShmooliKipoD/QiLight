@@ -57,6 +57,14 @@ public class Territory
 
         if (poly1.Count < 3 || poly2.Count < 3) return;
 
+        float area1 = MathUtils.PolygonArea(poly1);
+        float area2 = MathUtils.PolygonArea(poly2);
+
+        // Degenerate cut (e.g. a collinear trail along a border edge) yields a
+        // zero-area sliver. Capturing it would replace the play border with the
+        // sliver and permanently corrupt the playfield, so bail out.
+        if (MathF.Min(area1, area2) < 1f) return;
+
         bool qixInPoly1 = MathUtils.PointInPolygon(_qixPosition, poly1);
         bool qixInPoly2 = MathUtils.PointInPolygon(_qixPosition, poly2);
 
@@ -75,8 +83,6 @@ public class Territory
         }
         else
         {
-            float area1 = MathUtils.PolygonArea(poly1);
-            float area2 = MathUtils.PolygonArea(poly2);
             if (area1 > area2)
             {
                 uncaptured = poly1;
@@ -144,19 +150,20 @@ public class Territory
             poly.Add(end);
 
             for (int i = trail.Count - 2; i >= 0; i--)
-                poly.Add(trail[i]);
+                poly.Add(trail[i]); // reversed trail: end → … → start
 
-            int idx = startEdge;
-            if (idx < 0) idx += UncapturedPolygon.Count;
-            int safety = UncapturedPolygon.Count + 1;
-            int target = endEdge;
-            while (idx != target && safety-- > 0)
+            int n = UncapturedPolygon.Count;
+            int idx = (startEdge + 1) % n;
+            int stop = (endEdge + 1) % n;
+            int safety = n + 1;
+            // do/while: for a same-edge cut (start==stop) this wraps the full ring,
+            // which is exactly the "everything except the pocket" region.
+            do
             {
                 poly.Add(UncapturedPolygon[idx]);
-                idx = (idx - 1 + UncapturedPolygon.Count) % UncapturedPolygon.Count;
+                idx = (idx + 1) % n;
             }
-            if (safety > 0)
-                poly.Add(UncapturedPolygon[target]);
+            while (idx != stop && safety-- > 0);
         }
 
         return RemoveDuplicateVertices(poly);
