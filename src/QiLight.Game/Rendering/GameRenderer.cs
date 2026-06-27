@@ -116,27 +116,60 @@ public class GameRenderer
         _device.SetRenderTarget(null);
     }
 
-    // Composite the frame target to the backbuffer: a straight blit normally, or the
-    // outgoing + incoming scenes sliding horizontally during a transition.
+    // Soft edge width (px) of the wipe boundary.
+    private const int WipeFeather = 110;
+    private const int WipeFeatherSteps = 24;
+
+    // Composite the frame target to the backbuffer: a straight blit normally, or a
+    // Star-Wars-style feathered wipe sweeping right-to-left during a transition (the new
+    // scene fades in over the old along a soft boundary that moves from right to left).
     public void Present()
     {
         _device.SetRenderTarget(null);
         int w = _device.PresentationParameters.BackBufferWidth;
         int h = _device.PresentationParameters.BackBufferHeight;
 
-        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp);
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp);
         if (_transition.IsActive)
         {
-            int e = (int)(_transition.Progress * w);
-            // Outgoing pushes left, incoming enters from the right; together they cover w.
-            _spriteBatch.Draw(_transition.From, new Rectangle(-e, 0, w, h), Color.White);
-            _spriteBatch.Draw(_frameTarget, new Rectangle(w - e, 0, w, h), Color.White);
+            float e = _transition.Progress;
+            // Boundary sweeps from past the right edge to the left edge; the new scene is
+            // shown for x >= xb, with a feathered crossfade band just left of it.
+            float xb = (w + WipeFeather) * (1f - e);
+
+            // Outgoing scene underneath, fully opaque.
+            _spriteBatch.Draw(_transition.From, new Rectangle(0, 0, w, h), Color.White);
+
+            // Fully-revealed region to the right of the boundary: new scene at full alpha.
+            DrawSliceRange(_frameTarget, (int)MathF.Ceiling(xb), w, h, 1f);
+
+            // Feathered edge: new-scene alpha ramps 0 (left) -> 1 (right) across the band.
+            float bandLeft = xb - WipeFeather;
+            float stepW = (float)WipeFeather / WipeFeatherSteps;
+            for (int i = 0; i < WipeFeatherSteps; i++)
+            {
+                int xL = (int)MathF.Round(bandLeft + i * stepW);
+                int xR = (int)MathF.Round(bandLeft + (i + 1) * stepW);
+                DrawSliceRange(_frameTarget, xL, xR, h, (i + 0.5f) / WipeFeatherSteps);
+            }
         }
         else
         {
             _spriteBatch.Draw(_frameTarget, new Rectangle(0, 0, w, h), Color.White);
         }
         _spriteBatch.End();
+    }
+
+    // Draws the vertical slice [xL, xR) of a full-screen texture 1:1 at the given alpha,
+    // clipped to the screen. Alpha rides the colour's alpha channel only (no RGB tint).
+    private void DrawSliceRange(Texture2D texture, int xL, int xR, int h, float alpha)
+    {
+        int w = _device.PresentationParameters.BackBufferWidth;
+        int x0 = Math.Max(0, xL);
+        int x1 = Math.Min(w, xR);
+        if (x1 <= x0) return;
+        var rect = new Rectangle(x0, 0, x1 - x0, h);
+        _spriteBatch.Draw(texture, rect, rect, new Color(1f, 1f, 1f, alpha));
     }
 
     public void Draw(GameTime gameTime, Core.GameStateManager? drawState)

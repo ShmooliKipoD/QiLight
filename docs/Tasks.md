@@ -8,6 +8,8 @@
    - [ ] promt
    - [ ] if ecs again quit
  - [x] when presing d the player retract automaticly over the tail 
+ - [ ] each closed area should have diffrent color 
+ - [ ] 
 
 ## Fixes
 
