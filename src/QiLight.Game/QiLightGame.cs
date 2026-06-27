@@ -168,7 +168,10 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
             sparx.Update(gameTime, _playField);
 
         if (_territory.CapturedPercentage > prevCaptured + 0.1f)
+        {
             _renderer.TriggerCaptureFlash();
+            _renderer.TriggerCaptureBurst(_player.Position);
+        }
 
         if (_player.Mode == PlayerMode.Drawing)
         {
@@ -212,6 +215,7 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
     private void KillPlayer()
     {
         _renderer.TriggerScreenShake();
+        _renderer.TriggerDeathBurst(_player.Position);
         _player.Die();
         if (_player.Lives <= 0)
         {

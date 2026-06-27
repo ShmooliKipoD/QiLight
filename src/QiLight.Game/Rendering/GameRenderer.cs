@@ -15,6 +15,7 @@ public class GameRenderer
     private SpriteFont _font = null!;
     private NeonRenderer _neon = null!;
     private ShaderPipeline _shader = null!;
+    private ParticleSystem _particles = null!;
 
     private const float LightRadius = 240f;
     private const float LightIntensity = 0.45f;
@@ -46,6 +47,7 @@ public class GameRenderer
         _neon.LoadContent();
         _shader = new ShaderPipeline(_device);
         _shader.LoadContent(content);
+        _particles = new ParticleSystem(_device);
     }
 
     public void HandleResize()
@@ -64,6 +66,16 @@ public class GameRenderer
         _shader.FlashBloom(2f, 0.15f);
     }
 
+    public void TriggerCaptureBurst(Vector2 position)
+    {
+        _particles.TriggerCapture(position, Theme.Trail);
+    }
+
+    public void TriggerDeathBurst(Vector2 position)
+    {
+        _particles.TriggerDeath(position, Theme.Qix);
+    }
+
     public void Draw(GameTime gameTime, Core.GameStateManager? drawState)
     {
         // Update screen shake
@@ -79,6 +91,8 @@ public class GameRenderer
         {
             _shakeOffset = Vector2.Zero;
         }
+
+        _particles.Update(dt);
     }
 
     public void DrawGame(GameTime gameTime, PlayField playField, Player player,
@@ -98,6 +112,11 @@ public class GameRenderer
             DrawSparx(sparx);
         DrawPlayer(player, pulseFactor);
         DrawHUD(player, territory, levelManager);
+
+        // Neon bursts on top of the scene, additive so bloom makes them glow.
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.LinearClamp);
+        _particles.Draw(_spriteBatch);
+        _spriteBatch.End();
 
         if (phase == Core.GamePhase.Paused)
             DrawPauseOverlay();
