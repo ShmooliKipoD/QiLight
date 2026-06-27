@@ -240,6 +240,7 @@ public class GameRenderer
         _neon.DrawRadialLight(player.Position, radius, lightColor);
         _neon.DrawShadowVolumes(player.Position, occluders, screenDiag);
         _shader.EndLight();
+        _shader.BlurLight();
     }
 
     private void DrawPlayer(Player player, float pulseFactor)

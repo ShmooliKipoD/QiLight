@@ -11,6 +11,7 @@ public class ShaderPipeline
 
     private RenderTarget2D _sceneTarget = null!;
     private RenderTarget2D _lightTarget = null!;
+    private RenderTarget2D _lightBlur = null!;
     private RenderTarget2D _bloomExtract = null!;
     private RenderTarget2D _bloomBlurH = null!;
     private RenderTarget2D _bloomBlurV = null!;
@@ -57,12 +58,14 @@ public class ShaderPipeline
 
         _sceneTarget?.Dispose();
         _lightTarget?.Dispose();
+        _lightBlur?.Dispose();
         _bloomExtract?.Dispose();
         _bloomBlurH?.Dispose();
         _bloomBlurV?.Dispose();
 
         _sceneTarget = new RenderTarget2D(_device, w, h, false, SurfaceFormat.Color, DepthFormat.None);
         _lightTarget = new RenderTarget2D(_device, w, h, false, SurfaceFormat.Color, DepthFormat.None);
+        _lightBlur = new RenderTarget2D(_device, halfW, halfH, false, SurfaceFormat.Color, DepthFormat.None);
         _bloomExtract = new RenderTarget2D(_device, halfW, halfH, false, SurfaceFormat.Color, DepthFormat.None);
         _bloomBlurH = new RenderTarget2D(_device, halfW, halfH, false, SurfaceFormat.Color, DepthFormat.None);
         _bloomBlurV = new RenderTarget2D(_device, halfW, halfH, false, SurfaceFormat.Color, DepthFormat.None);
@@ -90,11 +93,22 @@ public class ShaderPipeline
         _device.SetRenderTarget(null);
     }
 
-    // Additively blend the light buffer onto the currently-bound scene target.
+    // Soften the light buffer: downsample to half res, so the upscaled composite
+    // reads through bilinear filtering and the hard shadow edges feather out.
+    public void BlurLight()
+    {
+        _device.SetRenderTarget(_lightBlur);
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp);
+        _spriteBatch.Draw(_lightTarget, _lightBlur.Bounds, Color.White);
+        _spriteBatch.End();
+        _device.SetRenderTarget(null);
+    }
+
+    // Additively blend the (blurred) light buffer onto the currently-bound scene target.
     public void CompositeLight()
     {
         _spriteBatch.Begin(SpriteSortMode.Deferred, NeonRenderer.AddRGB, SamplerState.LinearClamp);
-        _spriteBatch.Draw(_lightTarget, _sceneTarget.Bounds, Color.White);
+        _spriteBatch.Draw(_lightBlur, _sceneTarget.Bounds, Color.White);
         _spriteBatch.End();
     }
 
