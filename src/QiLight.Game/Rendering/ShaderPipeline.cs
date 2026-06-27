@@ -118,7 +118,9 @@ public class ShaderPipeline
         _device.Clear(Color.Black);
     }
 
-    public void End(GameTime gameTime)
+    // Applies bloom and composites the scene. With output == null the result goes to the
+    // backbuffer; pass a render target to capture the composited frame instead.
+    public void End(GameTime gameTime, RenderTarget2D? output = null)
     {
         _device.SetRenderTarget(null);
 
@@ -132,15 +134,15 @@ public class ShaderPipeline
 
         if (_useShaderBloom && _bloomEffect != null)
         {
-            DrawWithShaderBloom(effectiveIntensity);
+            DrawWithShaderBloom(effectiveIntensity, output);
         }
         else
         {
-            DrawWithFallbackBloom(effectiveIntensity);
+            DrawWithFallbackBloom(effectiveIntensity, output);
         }
     }
 
-    private void DrawWithShaderBloom(float intensity)
+    private void DrawWithShaderBloom(float intensity, RenderTarget2D? output)
     {
         _bloomEffect!.Parameters["BloomThreshold"]?.SetValue(BloomThreshold);
 
@@ -170,7 +172,7 @@ public class ShaderPipeline
         _bloomEffect.Parameters["BloomIntensity"]?.SetValue(intensity);
         _bloomEffect.Parameters["BloomSaturation"]?.SetValue(BloomSaturation);
         _bloomEffect.Parameters["BaseIntensity"]?.SetValue(BaseIntensity);
-        _device.SetRenderTarget(null);
+        _device.SetRenderTarget(output);
         _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp,
             null, null, _bloomEffect);
         _bloomEffect.CurrentTechnique = _bloomEffect.Techniques["BloomCombine"];
@@ -179,9 +181,9 @@ public class ShaderPipeline
         _spriteBatch.End();
     }
 
-    private void DrawWithFallbackBloom(float intensity)
+    private void DrawWithFallbackBloom(float intensity, RenderTarget2D? output)
     {
-        _device.SetRenderTarget(null);
+        _device.SetRenderTarget(output);
         _device.Clear(Color.Black);
 
         _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque);

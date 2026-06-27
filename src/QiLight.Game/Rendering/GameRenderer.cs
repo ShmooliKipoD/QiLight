@@ -16,6 +16,9 @@ public class GameRenderer
     private NeonRenderer _neon = null!;
     private ShaderPipeline _shader = null!;
     private ParticleSystem _particles = null!;
+    private RenderTarget2D _frameTarget = null!;
+    private SceneTransition _transition = null!;
+    private bool _pendingCapture;
 
     private const float LightRadius = 240f;
     private const float LightIntensity = 0.45f;
@@ -48,12 +51,25 @@ public class GameRenderer
         _shader = new ShaderPipeline(_device);
         _shader.LoadContent(content);
         _particles = new ParticleSystem(_device);
+        _transition = new SceneTransition(_device);
+        CreateFrameTarget();
     }
 
     public void HandleResize()
     {
         _neon.UpdateProjection();
         _shader.HandleResize();
+        _transition.HandleResize();
+        CreateFrameTarget();
+    }
+
+    private void CreateFrameTarget()
+    {
+        _frameTarget?.Dispose();
+        _frameTarget = new RenderTarget2D(_device,
+            _device.PresentationParameters.BackBufferWidth,
+            _device.PresentationParameters.BackBufferHeight,
+            false, SurfaceFormat.Color, DepthFormat.None);
     }
 
     public void TriggerScreenShake(float duration = 0.3f)
@@ -76,6 +92,53 @@ public class GameRenderer
         _particles.TriggerDeath(position, Theme.Qix);
     }
 
+    public bool IsTransitioning => _transition.IsActive;
+
+    // Begin a slide transition: capture the current (outgoing) frame on the next BeginFrame
+    // and start the slide. IsTransitioning is true immediately so updates freeze.
+    public void StartTransition()
+    {
+        _pendingCapture = true;
+        _transition.Start();
+    }
+
+    // Called once per frame before the phase renders into the frame target. Captures the
+    // still-present previous frame as the outgoing scene when a transition was requested.
+    public void BeginFrame()
+    {
+        if (!_pendingCapture) return;
+        _pendingCapture = false;
+
+        _device.SetRenderTarget(_transition.From);
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp);
+        _spriteBatch.Draw(_frameTarget, _frameTarget.Bounds, Color.White);
+        _spriteBatch.End();
+        _device.SetRenderTarget(null);
+    }
+
+    // Composite the frame target to the backbuffer: a straight blit normally, or the
+    // outgoing + incoming scenes sliding horizontally during a transition.
+    public void Present()
+    {
+        _device.SetRenderTarget(null);
+        int w = _device.PresentationParameters.BackBufferWidth;
+        int h = _device.PresentationParameters.BackBufferHeight;
+
+        _spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Opaque, SamplerState.LinearClamp);
+        if (_transition.IsActive)
+        {
+            int e = (int)(_transition.Progress * w);
+            // Outgoing pushes left, incoming enters from the right; together they cover w.
+            _spriteBatch.Draw(_transition.From, new Rectangle(-e, 0, w, h), Color.White);
+            _spriteBatch.Draw(_frameTarget, new Rectangle(w - e, 0, w, h), Color.White);
+        }
+        else
+        {
+            _spriteBatch.Draw(_frameTarget, new Rectangle(0, 0, w, h), Color.White);
+        }
+        _spriteBatch.End();
+    }
+
     public void Draw(GameTime gameTime, Core.GameStateManager? drawState)
     {
         // Update screen shake
@@ -93,6 +156,7 @@ public class GameRenderer
         }
 
         _particles.Update(dt);
+        _transition.Update(dt);
     }
 
     public void DrawGame(GameTime gameTime, PlayField playField, Player player,
@@ -121,7 +185,7 @@ public class GameRenderer
         if (phase == Core.GamePhase.Paused)
             DrawPauseOverlay();
 
-        _shader.End(gameTime);
+        _shader.End(gameTime, _frameTarget);
     }
 
     // Draws text with a very light glow: a few low-alpha offset copies behind the
@@ -160,7 +224,7 @@ public class GameRenderer
 
         _spriteBatch.End();
 
-        _shader.End(gameTime);
+        _shader.End(gameTime, _frameTarget);
     }
 
     public void DrawGameOver(GameTime gameTime, int score, int level)
@@ -181,7 +245,7 @@ public class GameRenderer
         DrawTextGlow(restart, CenteredX(restart, center.X, center.Y + 120, PromptScale), Theme.HUD * 0.7f, PromptScale);
 
         _spriteBatch.End();
-        _shader.End(gameTime);
+        _shader.End(gameTime, _frameTarget);
     }
 
     public void DrawWin(GameTime gameTime, int score, int level)
@@ -202,7 +266,7 @@ public class GameRenderer
         DrawTextGlow(next, CenteredX(next, center.X, center.Y + 120, PromptScale), Theme.HUD * 0.7f, PromptScale);
 
         _spriteBatch.End();
-        _shader.End(gameTime);
+        _shader.End(gameTime, _frameTarget);
     }
 
     private void DrawPlayfield(PlayField playField, Territory territory)

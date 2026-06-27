@@ -88,6 +88,13 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
         _input.Update();
         _pulseTime += (float)gameTime.ElapsedGameTime.TotalSeconds;
 
+        // Freeze phase logic while a scene slide plays out.
+        if (_renderer.IsTransitioning)
+        {
+            base.Update(gameTime);
+            return;
+        }
+
         switch (_state.CurrentPhase)
         {
             case GamePhase.Menu:
@@ -107,6 +114,7 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
                     _player.Reset();
                     InitializeLevel();
                     _state.TransitionTo(GamePhase.Menu);
+                    _renderer.StartTransition();
                 }
                 break;
             case GamePhase.Win:
@@ -119,6 +127,7 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
                     _player.Score = savedScore;
                     _player.Lives = savedLives;
                     _state.TransitionTo(GamePhase.Playing);
+                    _renderer.StartTransition();
                 }
                 break;
         }
@@ -134,6 +143,7 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
             _player.Reset();
             InitializeLevel();
             _state.TransitionTo(GamePhase.Playing);
+            _renderer.StartTransition();
         }
 
         if (_input.LeftPressed)
@@ -209,6 +219,7 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
         if (_territory.CapturedPercentage >= 75f)
         {
             _state.TransitionTo(GamePhase.Win);
+            _renderer.StartTransition();
         }
     }
 
@@ -220,6 +231,7 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
         if (_player.Lives <= 0)
         {
             _state.TransitionTo(GamePhase.GameOver);
+            _renderer.StartTransition();
         }
     }
 
@@ -228,6 +240,7 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
         GraphicsDevice.Clear(Color.Black);
 
         _renderer.Draw(gameTime, null!);
+        _renderer.BeginFrame();
 
         switch (_state.CurrentPhase)
         {
@@ -246,6 +259,8 @@ public class QiLightGame : Microsoft.Xna.Framework.Game
                 _renderer.DrawWin(gameTime, _player.Score, _levelManager.CurrentLevel);
                 break;
         }
+
+        _renderer.Present();
 
         base.Draw(gameTime);
     }
