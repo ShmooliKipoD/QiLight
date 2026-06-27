@@ -37,6 +37,8 @@ public class Sparx
 
         var segments = playField.Segments;
         if (segments.Count == 0) return;
+        if (_currentSegment >= segments.Count)
+            _currentSegment %= segments.Count;
 
         while (moveDistance > 0.1f)
         {
